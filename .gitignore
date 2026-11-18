@@ -1,0 +1,13 @@
+/vendor/
+/node_modules/
+/.env
+/.env.*
+!/.env.example
+/.vercel/
+/.local/
+*.log
+/supabase/.temp/
+# These name private account emails and the Supabase project reference.
+/SETUP.md
+/OFFLINE-SETUP.md
+/docs/implementation-plan.md
