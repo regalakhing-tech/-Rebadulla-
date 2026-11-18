@@ -127,6 +127,40 @@ try {
   check(failed.response.status===200&&failed.response.html.includes('could not send'),'SMTP failure produces a useful registration error');
   check(sql('SELECT id FROM clinic.users WHERE email=?',[failed.email]).length===0,'SMTP failure never creates an account');
   check(sql('SELECT token_hash FROM clinic.registration_challenges WHERE email=?',[failed.email]).length===0,'SMTP failure leaves no usable challenge');
+
+  // Every appointment change emails the owner. Failed emails stay queued and can be retried.
+  const adminEmail='clinic-admin@example.test',adminPassword='Admin-test-password-1';
+  const adminHash=execFileSync('php',['-r','echo password_hash($argv[1],PASSWORD_DEFAULT);',adminPassword],{encoding:'utf8'});
+  sql("INSERT INTO clinic.users (role,full_name,email,password_hash) VALUES ('admin','Test Admin',?,?)",[adminEmail,adminHash]);
+  const admin=new Session();await admin.request('/admin-login.php');
+  check((await admin.request('/admin-login.php',{email:adminEmail,password:adminPassword})).location==='/admin/dashboard.php','admin signs in for appointment email checks');
+  const owner=first.session,ownerId=sql('SELECT id FROM clinic.users WHERE email=?',[first.email])[0].id;
+  const petId=sql("INSERT INTO clinic.pets (owner_id,name,species) VALUES (?,'Mail Pet','Dog') RETURNING id",[ownerId])[0].id;
+  const serviceId=sql('SELECT id FROM clinic.services ORDER BY id LIMIT 1')[0].id;
+  const day=sql("SELECT d::date::text AS d FROM generate_series(current_date+2,current_date+8,interval '1 day') d WHERE extract(dow FROM d)<>0 LIMIT 1")[0].d;
+  const newKey=()=>randomBytes(16).toString('hex');
+  const book=async time=>{const before=messages.length;const response=await owner.request('/owner/book.php',{pet_id:petId,service_id:serviceId,appt_date:day,appt_time:time,request_key:newKey()});return {id:response.location?.match(/id=(\d+)/)?.[1],sent:messages.length-before};};
+  const act=async(session,role,id,action,extra={})=>{const path=`/${role}/appointment.php?id=${id}`,version=(await session.request(path)).html.match(/name="version" value="([^"]+)"/)[1],before=messages.length;const response=await session.request(path,{action,version,request_key:newKey(),...extra});return {response,sent:messages.length-before};};
+  const booked=await book('09:00');check(booked.id&&booked.sent===1,'booking emails the owner');
+  const ref=sql('SELECT booking_ref FROM clinic.appointments WHERE id=?',[booked.id])[0].booking_ref;
+  check(messages.at(-1).includes(ref)&&messages.at(-1).includes(first.email),'appointment email names the booking and goes to the owner');
+  for(const [session,role,action,extra] of [[admin,'admin','propose',{appt_date:day,appt_time:'10:00'}],[owner,'owner','accept',{}],[admin,'admin','reschedule',{appt_date:day,appt_time:'11:00'}],[owner,'owner','change',{appt_date:day,appt_time:'12:00'}],[admin,'admin','confirm',{}],[owner,'owner','cancel',{}]]){
+    const result=await act(session,role,booked.id,action,extra);check(result.sent===1&&messages.at(-1).includes(ref),`${role} ${action} emails the owner`);
+  }
+  const adminCancel=await book('14:00');check((await act(admin,'admin',adminCancel.id,'cancel')).sent===1,'admin cancel emails the owner');
+  for(const action of ['complete','miss']){
+    const visit=await book('13:00');await act(admin,'admin',visit.id,'confirm');sql('UPDATE clinic.appointments SET appt_date=current_date-1 WHERE id=?',[visit.id]);
+    check((await act(admin,'admin',visit.id,action)).sent===1,`admin ${action} emails the owner`);
+  }
+  const delayed=await book('15:00');failDelivery=true;const failure=await act(admin,'admin',delayed.id,'confirm');failDelivery=false;
+  check(failure.sent===0&&failure.response.location.includes('failed=1'),'failed appointment email is reported to staff');
+  check((await admin.request(failure.response.location)).html.includes('email was not sent'),'staff see the failed email warning');
+  check(sql("SELECT count(*)::int AS n FROM clinic.mail_outbox WHERE status='pending'")[0].n===1,'failed email stays queued');
+  check((await admin.request('/admin/mail.php')).html.includes('Send waiting emails'),'outbox offers a retry button');
+  check((await admin.request('/admin/mail.php',{action:'reset'})).location==='/admin/mail.php?sent=1&failed=0','retry button sends the waiting email');
+  const backlog=await book('15:30');failDelivery=true;await act(admin,'admin',backlog.id,'confirm');failDelivery=false;
+  check((await act(admin,'admin',backlog.id,'cancel')).sent===2,'next appointment change also sends emails left waiting');
+  check(!(await admin.request('/admin/mail.php')).html.includes('Send waiting emails'),'retry button hides when nothing is waiting');
   console.log(`EMAIL_VERIFICATION_PASSED=${checks}`);
 } finally {
   if(app&&app.exitCode===null){app.kill();await once(app,'exit');}

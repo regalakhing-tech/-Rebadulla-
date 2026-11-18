@@ -6641,7 +6641,6 @@ body.portal {
   line-height: 1.05;
   white-space: nowrap;
 }
-.brand-name small,
 .sidebar-brand small,
 .auth-logo small,
 .staff-brand small {
@@ -6671,9 +6670,6 @@ body.portal {
   letter-spacing: 0;
 }
 @media (max-width: 1180px) {
-  .brand-name small {
-    display: none;
-  }
   .brand-name {
     font-size: 18px;
   }

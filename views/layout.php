@@ -116,7 +116,7 @@ function render_layout(
             <div class="nav">
                 <a class="brand" href="/">
                     <img <?= img("logo", "48px") ?> alt="" />
-                    <span class="brand-name">Rebadulla Animal Care<small>Appointment &amp; Records System</small></span>
+                    <span class="brand-name">Rebadulla Animal Care</span>
                 </a>
                 <nav class="nav-links" id="nav-links" aria-label="Main navigation">
 <?php

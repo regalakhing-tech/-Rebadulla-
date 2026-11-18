@@ -9,9 +9,14 @@ $messages = rows(
     ORDER BY m.created_at DESC LIMIT 51 OFFSET ' .
         $page * 50,
 );
+$mailCounts = array_column(rows("SELECT status, count(*) AS n FROM mail_outbox GROUP BY status"), "n", "status");
+$waiting = (int) ($mailCounts["pending"] ?? 0) + (int) ($mailCounts["sending"] ?? 0);
 page_heading(
     "Email outbox",
     "Appointment emails sent to owners.",
+    $waiting
+        ? '<form method="post">' . csrf_field() . '<input type="hidden" name="action" value="reset" /><button class="button" type="submit">' . icon("mail") . "Send waiting emails</button></form>"
+        : "",
 );
 notices(
     $error,
@@ -21,9 +26,8 @@ notices(
 );
 ?>
 
-<?php $mailCounts = array_column(rows("SELECT status, count(*) AS n FROM mail_outbox GROUP BY status"), "n", "status"); ?>
 <div class="metrics metrics-3">
-    <div class="stat stat-violet"><span class="stat-icon"><?= icon("hourglass") ?></span><strong><?= (int) ($mailCounts["pending"] ?? 0) + (int) ($mailCounts["sending"] ?? 0) ?></strong><span>Waiting to send</span></div>
+    <div class="stat stat-violet"><span class="stat-icon"><?= icon("hourglass") ?></span><strong><?= $waiting ?></strong><span>Waiting to send</span></div>
     <div class="stat stat-green"><span class="stat-icon"><?= icon("check-circle") ?></span><strong><?= (int) ($mailCounts["sent"] ?? 0) ?></strong><span>Sent</span></div>
     <div class="stat stat-blue"><span class="stat-icon"><?= icon("mail") ?></span><strong><?= array_sum(array_map("intval", $mailCounts)) ?></strong><span>All emails</span></div>
 </div>

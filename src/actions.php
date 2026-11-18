@@ -152,7 +152,7 @@ function handle_post(string $path): void
                     WHERE (status = 'pending' AND attempts >= 5)
                     OR (status = 'sending' AND locked_at < now() - interval '5 minutes')");
             }
-            $result = deliver_mail(2);
+            $result = deliver_mail();
             redirect(
                 "/admin/mail.php?sent=" .
                     $result["sent"] .
@@ -170,11 +170,15 @@ function handle_post(string $path): void
 function finish_booking(array $record, string $role): never
 {
     try {
-        deliver_mail();
+        $failed = deliver_mail()["failed"] > 0;
     } catch (Throwable $error) {
+        $failed = true;
         error_log("Outbox processing failed: " . $error->getMessage());
     }
-    redirect("/" . $role . "/appointment.php?id=" . $record["id"] . "&saved=1");
+    redirect(
+        "/" . $role . "/appointment.php?id=" . $record["id"] . "&saved=1" .
+            ($failed ? "&failed=1" : ""),
+    );
 }
 
 function save_pet(array $owner): void

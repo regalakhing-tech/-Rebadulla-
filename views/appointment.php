@@ -52,7 +52,7 @@ $eventIcons = [
     "missed" => ["x-circle", "red"],
     "cancelled" => ["x-circle", "red"],
 ];
-notices($error);
+notices($error ?: ($admin && isset($_GET["failed"]) ? "Saved, but the email was not sent. Retry it in Email outbox." : null));
 ?>
 
 <section class="appt-hero appt-<?= e($status) ?>">

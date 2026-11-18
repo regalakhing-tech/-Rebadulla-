@@ -93,13 +93,15 @@ function queue_appointment_mail(
     );
 }
 
-function deliver_mail(int $limit = 1): array
+function deliver_mail(int $limit = 5): array
 {
     if (!mail_enabled()) {
         return ["sent" => 0, "failed" => 0];
     }
     $result = ["sent" => 0, "failed" => 0];
-    for ($i = 0; $i < $limit; $i++) {
+    // Stops early so a slow mail server cannot outlast the 30-second Vercel limit.
+    $deadline = microtime(true) + 12;
+    for ($i = 0; $i < $limit && microtime(true) < $deadline; $i++) {
         $message = transaction(function (): ?array {
             $message = row("SELECT * FROM mail_outbox WHERE attempts < 5 AND
                 (status = 'pending' OR (status = 'sending' AND locked_at < now() - interval '5 minutes'))
