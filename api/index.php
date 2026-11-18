@@ -106,6 +106,7 @@ try {
         "/admin/reports-pdf.php" => "reports-pdf",
         "/admin/mail.php" => "mail",
     ];
+    $routes += array_map(fn(array $page): string => $page["view"], SITE_PAGES);
     if (!isset($routes[$path])) {
         http_response_code(404);
         throw new ValidationError("Page not found.");

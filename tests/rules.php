@@ -120,4 +120,15 @@ rejects(fn() => password_field('password'), 'reject passwords exceeding bcrypt b
 $_POST['password'] = "secret\0value";
 rejects(fn() => password_field('password'), 'reject null bytes before hashing');
 $_POST = [];
+require dirname(__DIR__) . "/src/site.php";
+$week = [["day_of_week" => 0, "open_time" => null, "close_time" => null, "is_closed" => true]];
+foreach (range(1, 6) as $day) {
+    $week[] = ["day_of_week" => $day, "open_time" => "08:00:00", "close_time" => "17:00:00", "is_closed" => false];
+}
+$status = fn(string $when): array => clinic_status($week, new DateTimeImmutable($when));
+check($status("2026-11-16 10:00:00") === ["open" => true, "text" => "Open now · until 5:00 PM"], "open during clinic hours");
+check($status("2026-11-16 07:00:00")["text"] === "Closed now · opens today at 8:00 AM", "opens later today");
+check($status("2026-11-16 17:00:00")["text"] === "Closed now · opens tomorrow at 8:00 AM", "closed at closing time");
+check($status("2026-11-14 18:00:00")["text"] === "Closed now · opens Monday at 8:00 AM", "skips the closed Sunday");
+check(clinic_status([], new DateTimeImmutable("2026-11-16 10:00:00"))["open"] === false, "no hours means not open");
 echo "PASS $checks appointment and security rule checks\n";

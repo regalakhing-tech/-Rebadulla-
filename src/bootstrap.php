@@ -23,6 +23,7 @@ require __DIR__ . "/appointments.php";
 require __DIR__ . "/mail.php";
 require __DIR__ . "/registration.php";
 require __DIR__ . "/actions.php";
+require __DIR__ . "/site.php";
 require ROOT . "/views/layout.php";
 
 function configured(): bool

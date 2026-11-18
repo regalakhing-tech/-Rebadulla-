@@ -62,7 +62,25 @@ IMAGES = {
     "avatar-1": ("image16.webp", [96], (0.22, 0.04, 0.72, 0.42), {}),
     "avatar-2": ("image10.webp", [96], (0.18, 0.02, 0.62, 0.35), {}),
     "avatar-3": ("image11.webp", [96], (0.52, 0.185, 0.80, 0.395), {}),
+    # About, Services and Contact pages: real clinic photos
+    "site-interior": ("image4.webp", [800, 1600], (16, 9), {"quality": 76}),
+    "site-floor": ("image8.webp", [560, 900], (4, 3), {}),
+    "site-team": ("image36.webp", [560, 900], (5, 4), {}),
+    "site-surgery": ("image29.webp", [560, 900], (4, 5), {}),
+    "svc-visit": ("image33.webp", [560, 900], (0.0, 0.2, 1.0, 0.57), {}),
+    "svc-protect": ("image38.webp", [560, 900], (0.0, 0.3, 1.0, 0.86), {}),
 }
+
+# Gallery page: whole photos at two sizes, cropped by the page layout.
+for file in [
+    "image1.webp", "image2.webp", "image4.webp", "image5.webp", "image6.webp", "image7.webp",
+    "image8.webp", "image10.webp", "image11.webp", "image12.webp", "image13.webp", "image16.webp",
+    "image17.webp", "image18.webp", "image19.webp", "image20.jpg", "image22.jpg", "image24.webp",
+    "image29.webp", "image30.webp", "image32.webp", "image33.webp", "image35.webp",
+    "image36.webp", "image38.webp", "image39.webp", "image40.webp", "image41.webp", "image42.webp",
+    "image43.webp", "100.jpg",
+]:
+    IMAGES["g-" + file.split(".")[0].removeprefix("image")] = (file, [420, 1000], None, {})
 
 
 def cropped(image, crop):
