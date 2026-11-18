@@ -73,7 +73,7 @@ notices($open ? null : $error);
 </div>
 <?php endif; ?>
 
-<dialog class="pet-dialog" id="pet-dialog" aria-labelledby="pet-dialog-title"<?= $open ? " open data-start-open" : "" ?> data-mode="<?= $edit ? "edit" : "add" ?>">
+<dialog class="pet-dialog" id="pet-dialog" autofocus aria-labelledby="pet-dialog-title"<?= $open ? " open data-start-open" : "" ?> data-mode="<?= $edit ? "edit" : "add" ?>">
     <form method="post" class="stack-form" enctype="multipart/form-data">
         <div class="pet-dialog-head">
             <span class="title-icon"><?= icon($edit ? "edit" : "paw") ?></span>
@@ -85,6 +85,7 @@ notices($open ? null : $error);
         <?php endif; ?>
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= e($edit["id"] ?? ($values["id"] ?? "")) ?>" />
+        <div class="pet-dialog-body">
         <div class="photo-field" data-photo-field>
             <label class="photo-preview" for="pet-photo-input" data-photo-preview aria-label="Choose a photo">
                 <?php if (!empty($edit["photo_version"])): ?>
@@ -104,6 +105,7 @@ notices($open ? null : $error);
                 <?php endif; ?>
             </div>
         </div>
+        <div class="pet-dialog-fields">
         <label>
             Pet name
             <input name="name" maxlength="60" placeholder="e.g. Mochi" value="<?= e($values["name"] ?? "") ?>" required />
@@ -145,6 +147,8 @@ notices($open ? null : $error);
             <span class="optional">optional</span>
             <textarea name="notes" rows="3" maxlength="2000" placeholder="Allergies, behavior, anything the vet should know"><?= e($values["notes"] ?? "") ?></textarea>
         </label>
+        </div>
+        </div>
         <div class="pet-dialog-actions">
             <a class="button button-secondary" href="/owner/pets.php" data-pet-dialog-close>Cancel</a>
             <button class="button" type="submit"><?= icon("check") ?><?= $edit ? "Save changes" : "Add pet" ?></button>

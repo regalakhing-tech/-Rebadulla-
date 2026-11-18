@@ -4409,15 +4409,26 @@ body.portal {
   margin-bottom: 8px;
 }
 .pet-dialog {
-  width: min(560px, calc(100% - 32px));
-  max-height: calc(100vh - 48px);
+  width: min(980px, calc(100% - 48px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   padding: 0;
+  /* Very short screens can still reach every field, with no visible bar. */
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
   border: 0;
   border-radius: 26px;
   background: #fff;
   color: var(--text);
   box-shadow: 0 40px 100px -30px rgba(5, 13, 43, 0.55);
+}
+.pet-dialog::-webkit-scrollbar {
+  display: none;
+}
+.pet-dialog:focus {
+  outline: none;
 }
 .pet-dialog[open] {
   animation: toast-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -4428,45 +4439,138 @@ body.portal {
   backdrop-filter: blur(4px);
 }
 .pet-dialog form {
-  padding: 22px 24px 24px;
+  gap: 16px;
+  padding: 24px;
 }
 .pet-dialog-head {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+.pet-dialog-head .title-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
 .pet-dialog-head h2 {
   flex: 1;
-  font-size: 20px;
+  margin: 0;
+  font-size: 26px;
   letter-spacing: -0.03em;
 }
 .pet-dialog-close {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   color: var(--muted);
+}
+.pet-dialog-body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+}
+.pet-dialog-fields {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+.pet-dialog textarea {
+  min-height: 88px;
+  resize: none;
 }
 .pet-dialog-close:hover {
   background: var(--field);
   color: var(--navy);
 }
 .pet-dialog .photo-field {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 16px;
   border-style: dashed;
 }
+.pet-dialog .photo-field > div {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+}
+.pet-dialog .photo-pick {
+  width: 100%;
+  justify-content: center;
+}
 .pet-dialog .photo-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   cursor: pointer;
   transition: box-shadow 0.2s ease;
+}
+.pet-dialog .photo-preview .icon {
+  width: 48px;
+  height: 48px;
 }
 .pet-dialog .photo-preview:hover {
   box-shadow: inset 0 0 0 2px var(--blue);
 }
 .pet-dialog-actions {
   display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 10px;
-  margin-top: 4px;
+  grid-template-columns: 160px 220px;
+  justify-content: end;
+  gap: 12px;
+}
+
+@media (min-width: 861px) and (min-height: 760px) {
+  .pet-dialog form {
+    gap: 24px;
+    padding: 32px;
+  }
+  .pet-dialog-body {
+    gap: 32px;
+  }
+  .pet-dialog-fields {
+    gap: 24px;
+  }
+  .pet-dialog textarea {
+    min-height: 136px;
+  }
+}
+
+@media (max-width: 860px) {
+  .pet-dialog-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .pet-dialog .photo-field {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .pet-dialog .photo-field > div {
+    justify-items: start;
+    text-align: left;
+  }
+  .pet-dialog .photo-pick {
+    width: auto;
+  }
+  .pet-dialog .photo-preview {
+    width: 84px;
+  }
+  .pet-dialog .photo-preview .icon {
+    width: 32px;
+    height: 32px;
+  }
+  /* Keeps Save in view on short phones, where the form is taller than the screen. */
+  .pet-dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    grid-template-columns: 1fr 1.4fr;
+    padding: 8px 0;
+    background: #fff;
+  }
 }
 
 @media (max-width: 720px) {
