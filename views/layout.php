@@ -125,7 +125,7 @@ function render_layout(
         <script src="<?= e(asset("/assets/site.js")) ?>" defer></script>
 <?php endif; ?>
     </head>
-    <body id="top" class="<?= $portal ? "portal" : ($auth ? "auth-site" : "public-site") ?><?= $sitePage ? " site-page" : "" ?>">
+    <body id="top" class="<?= $portal ? "portal" : ($auth ? "auth-site" : "public-site") ?><?= $sitePage ? " site-page" : "" ?>"<?= $portal && ($_SERVER["REQUEST_METHOD"] ?? "GET") === "GET" ? " data-refresh" : "" ?>>
         <a class="skip-link" href="#main">Skip to content</a>
 <?php if (!$auth && !$portal): ?>
         <header class="site-header" data-header>

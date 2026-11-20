@@ -125,30 +125,30 @@ function askToConfirm(form) {
   });
 }
 
-document.querySelectorAll("form").forEach((form) => {
-  form.addEventListener("submit", async (event) => {
-    if (form.dataset.confirm && form.dataset.confirmed !== "true") {
+// Listens on the document so forms swapped in by the background refresh are covered too.
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (form.dataset.confirm && form.dataset.confirmed !== "true") {
+    event.preventDefault();
+    const submitter = event.submitter;
+    if (await askToConfirm(form)) {
+      form.dataset.confirmed = "true";
+      form.requestSubmit(submitter);
+    }
+    return;
+  }
+  if (form.method.toLowerCase() === "post") {
+    if (form.dataset.submitting === "true") {
       event.preventDefault();
-      const submitter = event.submitter;
-      if (await askToConfirm(form)) {
-        form.dataset.confirmed = "true";
-        form.requestSubmit(submitter);
-      }
       return;
     }
-    if (form.method.toLowerCase() === "post") {
-      if (form.dataset.submitting === "true") {
-        event.preventDefault();
-        return;
-      }
-      form.dataset.submitting = "true";
-      const button = event.submitter;
-      if (button) {
-        button.setAttribute("aria-busy", "true");
-        button.classList.add("is-submitting");
-      }
+    form.dataset.submitting = "true";
+    const button = event.submitter;
+    if (button) {
+      button.setAttribute("aria-busy", "true");
+      button.classList.add("is-submitting");
     }
-  });
+  }
 });
 
 document
@@ -345,13 +345,12 @@ if (petDialog) {
     petDialog.close();
     petDialog.showModal();
   }
-  document.querySelectorAll("[data-pet-dialog-open]").forEach((link) =>
-    link.addEventListener("click", (event) => {
-      if (!addMode()) return; // An edit form is loaded: reload a blank one.
-      event.preventDefault();
-      petDialog.showModal();
-    }),
-  );
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-pet-dialog-open]")) return;
+    if (!addMode()) return; // An edit form is loaded: reload a blank one.
+    event.preventDefault();
+    petDialog.showModal();
+  });
   petDialog.querySelectorAll("[data-pet-dialog-close]").forEach((link) =>
     link.addEventListener("click", (event) => {
       if (!addMode()) return; // Leave the edit page.
@@ -451,3 +450,67 @@ document.querySelectorAll("[data-marquee]").forEach((marquee) => {
     }
   });
 });
+
+// Signed-in portal pages re-fetch themselves every 3 seconds and swap in only what changed, so the
+// clinic and pet owners both see new requests and status changes without reloading. Nothing shows on screen.
+if (document.body.hasAttribute("data-refresh")) {
+  // Scripts keep their own state in these, so the refresh never touches them.
+  const guarded = "dialog, details[open], [data-slot-form], [data-booking-form]";
+  const dirty = (field) =>
+    field.type === "file" ? field.files.length > 0
+    : field.type === "checkbox" || field.type === "radio" ? field.checked !== field.defaultChecked
+    : field.tagName !== "SELECT" ? field.value !== field.defaultValue
+    : field.multiple ? [...field.options].some((option) => option.selected !== option.defaultSelected)
+    : field.selectedIndex !== Math.max(0, [...field.options].findIndex((option) => option.defaultSelected));
+  const inUse = (form) => form.contains(document.activeElement) || [...form.elements].some(dirty);
+  // Never replace what the person is using: focus, a form they started, an open dialog or menu.
+  const busy = (node) => {
+    const element = node.nodeType === 1 ? node : node.parentElement;
+    const form = element.closest("form");
+    return element.contains(document.activeElement) || element.closest(guarded) !== null
+      || element.querySelector(guarded) !== null || (form !== null && inUse(form))
+      || [...element.querySelectorAll("form")].some(inUse);
+  };
+  const sync = (live, next) => {
+    live.getAttributeNames().forEach((name) => { if (!next.hasAttribute(name)) live.removeAttribute(name); });
+    next.getAttributeNames().forEach((name) => {
+      if (live.getAttribute(name) !== next.getAttribute(name)) live.setAttribute(name, next.getAttribute(name));
+    });
+  };
+  const patch = (live, next) => {
+    if (live.isEqualNode(next)) return;
+    if (live.nodeType === 1 && live.nodeName === next.nodeName && live.childNodes.length === next.childNodes.length) {
+      if (!busy(live)) sync(live, next);
+      const kids = [...next.childNodes];
+      [...live.childNodes].forEach((child, index) => patch(child, kids[index]));
+    } else if (!busy(live)) {
+      live.replaceWith(next);
+    }
+  };
+  let stopped = false;
+  let running = false;
+  const refresh = async () => {
+    if (stopped || running || document.hidden) return;
+    running = true;
+    try {
+      const response = await fetch(location.href, { cache: "no-store", credentials: "same-origin" });
+      if (!response.ok || response.redirected || !response.headers.get("content-type")?.includes("text/html")) return;
+      const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (stopped || !fresh.body.hasAttribute("data-refresh")) return;
+      ["#main", ".sidebar-nav", ".tabbar"].forEach((selector) => {
+        const live = document.querySelector(selector);
+        const next = fresh.querySelector(selector);
+        if (live && next) patch(live, next);
+      });
+    } catch {
+      // Offline or mid-deploy: the next tick tries again.
+    } finally {
+      running = false;
+    }
+  };
+  setInterval(refresh, 3000);
+  document.addEventListener("visibilitychange", refresh);
+  // A submitted form owns the next page, so stop fetching.
+  document.addEventListener("submit", (event) => { if (!event.defaultPrevented) stopped = true; });
+  addEventListener("pageshow", (event) => { if (event.persisted) { stopped = false; refresh(); } });
+}
