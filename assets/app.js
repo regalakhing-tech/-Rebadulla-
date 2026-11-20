@@ -456,10 +456,11 @@ document.querySelectorAll("[data-marquee]").forEach((marquee) => {
 if (document.body.hasAttribute("data-refresh")) {
   // Scripts keep their own state in these, so the refresh never touches them.
   const guarded = "dialog, details[open], [data-slot-form], [data-booking-form]";
+  // Buttons and fieldsets have no default value, so they never count as edited.
   const dirty = (field) =>
     field.type === "file" ? field.files.length > 0
     : field.type === "checkbox" || field.type === "radio" ? field.checked !== field.defaultChecked
-    : field.tagName !== "SELECT" ? field.value !== field.defaultValue
+    : field.tagName !== "SELECT" ? "defaultValue" in field && field.value !== field.defaultValue
     : field.multiple ? [...field.options].some((option) => option.selected !== option.defaultSelected)
     : field.selectedIndex !== Math.max(0, [...field.options].findIndex((option) => option.defaultSelected));
   const inUse = (form) => form.contains(document.activeElement) || [...form.elements].some(dirty);
@@ -467,9 +468,9 @@ if (document.body.hasAttribute("data-refresh")) {
   const busy = (node) => {
     const element = node.nodeType === 1 ? node : node.parentElement;
     const form = element.closest("form");
-    return element.contains(document.activeElement) || element.closest(guarded) !== null
-      || element.querySelector(guarded) !== null || (form !== null && inUse(form))
-      || [...element.querySelectorAll("form")].some(inUse);
+    if (element.closest(guarded) !== null || (form !== null && inUse(form))) return true;
+    return node.nodeType === 1 && (element.contains(document.activeElement) || element.querySelector(guarded) !== null
+      || [...element.querySelectorAll("form")].some(inUse));
   };
   const sync = (live, next) => {
     live.getAttributeNames().forEach((name) => { if (!next.hasAttribute(name)) live.removeAttribute(name); });
@@ -477,15 +478,37 @@ if (document.body.hasAttribute("data-refresh")) {
       if (live.getAttribute(name) !== next.getAttribute(name)) live.setAttribute(name, next.getAttribute(name));
     });
   };
+  const key = (node) => node.nodeType === 1 ? `${node.nodeName}#${node.id}.${node.getAttribute("class") || ""}` : `#${node.nodeType}`;
   const patch = (live, next) => {
     if (live.isEqualNode(next)) return;
-    if (live.nodeType === 1 && live.nodeName === next.nodeName && live.childNodes.length === next.childNodes.length) {
-      if (!busy(live)) sync(live, next);
-      const kids = [...next.childNodes];
-      [...live.childNodes].forEach((child, index) => patch(child, kids[index]));
-    } else if (!busy(live)) {
-      live.replaceWith(next);
+    const free = !busy(live);
+    const resized = live.childNodes.length !== next.childNodes.length;
+    if (live.nodeType !== 1 || live.nodeName !== next.nodeName || (free && resized)) {
+      if (free) live.replaceWith(next);
+      return;
     }
+    if (free) sync(live, next);
+    if (resized) return merge(live, next);
+    const kids = [...next.childNodes];
+    [...live.childNodes].forEach((child, index) => patch(child, kids[index]));
+  };
+  // A panel that holds a booking form or a started form but gained or lost children: keep what is
+  // in use, add the new children and drop stale ones, so a new action such as "Accept new time" appears.
+  const merge = (live, next) => {
+    let at = 0;
+    for (const fresh of [...next.childNodes]) {
+      const rest = [...live.childNodes].slice(at);
+      const match = rest.findIndex((child) => key(child) === key(fresh));
+      if (match === -1) {
+        live.insertBefore(fresh, rest[0] ?? null);
+        at++;
+        continue;
+      }
+      rest.slice(0, match).forEach((stale) => { if (busy(stale)) at++; else stale.remove(); });
+      patch(rest[match], fresh);
+      at++;
+    }
+    [...live.childNodes].slice(at).forEach((stale) => { if (!busy(stale)) stale.remove(); });
   };
   let stopped = false;
   let running = false;
